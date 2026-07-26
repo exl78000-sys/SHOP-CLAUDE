@@ -7,6 +7,8 @@
 
 0. **Repo 位置（2026-07-16 已轉移）**：`github.com/exl78000-sys/SHOP-CLAUDE`
    （原 `exl780000-hub/SHOP-CLAUDE`，GitHub 自動轉址中；新對話請掛新路徑）
+   **Vercel 專案**：`shop-claude`（帳號 `gonlin`，Hobby 方案）→ vercel.com/gonlin/shop-claude
+   環境變數：`NOTION_TOKEN`、`APP_PASSWORD`（登入密碼，未設定＝不啟用登入）
 1. 開發分支：`claude/project-setup-dev-496913`（在此 commit）
 2. 每次修改後：`npm run build` 確認編譯通過；API 檔案跑 `node --check`
 3. 推送（兩個都要推，缺一不可）：
