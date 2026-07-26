@@ -5,6 +5,8 @@
 
 ## 開發工作流程（固定步驟）
 
+0. **Repo 位置（2026-07-16 已轉移）**：`github.com/exl78000-sys/SHOP-CLAUDE`
+   （原 `exl780000-hub/SHOP-CLAUDE`，GitHub 自動轉址中；新對話請掛新路徑）
 1. 開發分支：`claude/project-setup-dev-496913`（在此 commit）
 2. 每次修改後：`npm run build` 確認編譯通過；API 檔案跑 `node --check`
 3. 推送（兩個都要推，缺一不可）：
