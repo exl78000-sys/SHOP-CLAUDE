@@ -158,10 +158,34 @@ export default function WageCalc() {
   const [tExtra, setTExtra] = useState("");
   const trouserTotal = TROUSER_BASE + (Number(tExtra) || 0);
 
+  // ── 褲子師傅：批次（褲子／背心 各幾件）──
+  const [tMode, setTMode] = useState("single");
+  const [tBatchQty, setTBatchQty] = useState({});
+  const [tBatchExtra, setTBatchExtra] = useState("");
+  const TROUSER_BATCH_ITEMS = ["褲子", "背心"]; // 褲子師傅承接皆固定 1900
+  const tBatchTotal = TROUSER_BATCH_ITEMS.reduce((s, k) => s + (Number(tBatchQty[k]) || 0) * 1900, 0) + (Number(tBatchExtra) || 0);
+  const tBatchDetail = () => {
+    const parts = TROUSER_BATCH_ITEMS.filter(k => Number(tBatchQty[k]) > 0).map(k => `${k}×${tBatchQty[k]}`);
+    if (Number(tBatchExtra) > 0) parts.push(`特殊${tBatchExtra}`);
+    return parts.join("・") || "—";
+  };
+
   // ── 經理 ──
   const [mItem, setMItem] = useState("二件式");
   const [mExtra, setMExtra] = useState("");
   const managerTotal = (MANAGER_FEE[mItem] || 0) + (PATTERN_FEE[mItem] || 0) + (Number(mExtra) || 0);
+
+  // ── 經理：批次（各品項各幾件）──
+  const [mgrMode, setMgrMode] = useState("single");
+  const [mgrBatchQty, setMgrBatchQty] = useState({});
+  const [mgrBatchExtra, setMgrBatchExtra] = useState("");
+  const mgrBatchTotal = Object.keys(MANAGER_FEE).reduce((s, k) =>
+    s + (Number(mgrBatchQty[k]) || 0) * ((MANAGER_FEE[k] || 0) + (PATTERN_FEE[k] || 0)), 0) + (Number(mgrBatchExtra) || 0);
+  const mgrBatchDetail = () => {
+    const parts = Object.keys(MANAGER_FEE).filter(k => Number(mgrBatchQty[k]) > 0).map(k => `${k}×${mgrBatchQty[k]}`);
+    if (Number(mgrBatchExtra) > 0) parts.push(`特殊${mgrBatchExtra}`);
+    return parts.join("・") || "—";
+  };
 
   // 目前 (師傅, 項目) 的金額與明細
   const current = (() => {
@@ -171,9 +195,11 @@ export default function WageCalc() {
       return { amount: vestJacketAmount, detail: `背心｜${vestDouble ? "雙排" : "單排"}` };
     }
     if (tailor === "褲子師傅") {
+      if (tMode === "batch") return { amount: tBatchTotal, detail: `批次｜${tBatchDetail()}` };
       if (item === "褲子") return { amount: trouserTotal, detail: `褲子｜固定1900${Number(tExtra) > 0 ? `・特殊${tExtra}` : ""}` };
       return { amount: 1900, detail: "背心｜固定1900" };
     }
+    if (mgrMode === "batch") return { amount: mgrBatchTotal, detail: `批次｜${mgrBatchDetail()}` };
     return { amount: managerTotal, detail: `${mItem}｜經理${MANAGER_FEE[mItem]}＋打板${PATTERN_FEE[mItem]}${Number(mExtra) > 0 ? `＋特殊${mExtra}` : ""}` };
   })();
 
@@ -183,8 +209,14 @@ export default function WageCalc() {
       if (item === "修改") { setAlterQty({}); setAExtra(""); }
       if (item === "背心") setVestDouble(false);
     }
-    if (tailor === "褲子師傅") setTExtra("");
-    if (tailor === "經理") setMExtra("");
+    if (tailor === "褲子師傅") {
+      setTExtra("");
+      setTBatchQty({}); setTBatchExtra("");
+    }
+    if (tailor === "經理") {
+      setMExtra("");
+      setMgrBatchQty({}); setMgrBatchExtra("");
+    }
   };
 
   const saveRecord = async () => {
@@ -324,8 +356,24 @@ export default function WageCalc() {
         ))}
       </div>
 
-      {/* 項目切換（該師傅可做的項目） */}
-      {itemOptions.length > 1 && (
+      {/* 單筆／批次 切換（褲子師傅、經理支援批次） */}
+      {(tailor === "褲子師傅" || tailor === "經理") && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          {[{ v: "single", label: "單筆試算" }, { v: "batch", label: "📦 批次計算" }].map(o => {
+            const on = (tailor === "經理" ? mgrMode : tMode) === o.v;
+            return (
+              <button key={o.v} onClick={() => tailor === "經理" ? setMgrMode(o.v) : setTMode(o.v)} style={{
+                cursor: "pointer", borderRadius: 8, fontSize: 12, fontWeight: 600, padding: "8px 4px", flex: 1,
+                border: `1px solid ${on ? C.green : C.border}`,
+                background: on ? C.green + "22" : C.mid, color: on ? C.green : C.sage,
+              }}>{o.label}</button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 項目切換（該師傅可做的項目；褲子師傅批次模式不需切換） */}
+      {itemOptions.length > 1 && !(tailor === "褲子師傅" && tMode === "batch") && (
         <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
           {itemOptions.map(it => {
             const on = item === it;
@@ -384,15 +432,15 @@ export default function WageCalc() {
         </Sec>
       )}
 
-      {/* ── 褲子師傅：褲子 ── */}
-      {tailor === "褲子師傅" && item === "褲子" && (
+      {/* ── 褲子師傅：褲子（單筆） ── */}
+      {tailor === "褲子師傅" && item === "褲子" && tMode === "single" && (
         <Sec title={`👖 褲子製作（固定 $${TROUSER_BASE.toLocaleString()}）`}>
           <NumRow label="特殊加項（$）" value={tExtra} onChange={setTExtra} C={C} />
         </Sec>
       )}
 
-      {/* ── 褲子師傅：背心 ── */}
-      {tailor === "褲子師傅" && item === "背心" && (
+      {/* ── 褲子師傅：背心（單筆） ── */}
+      {tailor === "褲子師傅" && item === "背心" && tMode === "single" && (
         <Sec title="🦺 背心製作">
           <div style={{ background: C.mid, borderRadius: 8, padding: "14px", textAlign: "center", fontSize: 13, color: C.sage }}>
             褲子師傅製作背心：固定 <span style={{ color: C.gold, fontWeight: 700, fontFamily: "Georgia,serif" }}>$1,900</span>
@@ -400,8 +448,19 @@ export default function WageCalc() {
         </Sec>
       )}
 
-      {/* ── 經理 ── */}
-      {tailor === "經理" && (
+      {/* ── 褲子師傅：批次（褲子／背心 各幾件） ── */}
+      {tailor === "褲子師傅" && tMode === "batch" && (
+        <Sec title="📦 批次計算（褲子／背心 各幾件，皆固定 $1,900／件）">
+          <NumRow label="褲子（×1,900）" unit="件" value={tBatchQty["褲子"] || ""}
+            onChange={v => setTBatchQty(p => ({ ...p, 褲子: v }))} C={C} />
+          <NumRow label="背心（×1,900）" unit="件" value={tBatchQty["背心"] || ""}
+            onChange={v => setTBatchQty(p => ({ ...p, 背心: v }))} C={C} />
+          <NumRow label="特殊加項（$）" value={tBatchExtra} onChange={setTBatchExtra} C={C} />
+        </Sec>
+      )}
+
+      {/* ── 經理：單筆 ── */}
+      {tailor === "經理" && mgrMode === "single" && (
         <Sec title="🧑‍💼 經理費＋打板費">
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
             {Object.keys(MANAGER_FEE).map(it => (
@@ -426,8 +485,24 @@ export default function WageCalc() {
         </Sec>
       )}
 
+      {/* ── 經理：批次（各品項各幾件） ── */}
+      {tailor === "經理" && mgrMode === "batch" && (
+        <Sec title="📦 批次計算（各品項各幾件）">
+          {Object.keys(MANAGER_FEE).map(it => (
+            <NumRow key={it}
+              label={`${it}（經理${MANAGER_FEE[it]}＋打板${PATTERN_FEE[it]}＝$${(MANAGER_FEE[it] + PATTERN_FEE[it]).toLocaleString()}）`}
+              unit="件" value={mgrBatchQty[it] || ""}
+              onChange={v => setMgrBatchQty(p => ({ ...p, [it]: v }))} C={C} />
+          ))}
+          <NumRow label="特殊加項（$）" value={mgrBatchExtra} onChange={setMgrBatchExtra} C={C} />
+        </Sec>
+      )}
+
       {/* 合計 + 存成一筆 */}
-      <SaveBar amount={current.amount} note={`${tailor}・${item === "經理" ? mItem : item}`}
+      <SaveBar amount={current.amount}
+        note={tailor === "經理" ? (mgrMode === "batch" ? `${tailor}・批次` : `${tailor}・${mItem}`)
+          : tailor === "褲子師傅" ? (tMode === "batch" ? `${tailor}・批次` : `${tailor}・${item}`)
+          : `${tailor}・${item}`}
         name={custName} onName={setCustName} onSave={saveRecord} busy={busy} />
 
       {loadingRecs && <div style={{ color: C.sage, fontSize: 12, textAlign: "center", padding: 16 }}>紀錄載入中...</div>}
